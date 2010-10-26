@@ -1,0 +1,213 @@
+#!/bin/bash
+
+### Version 0.9
+### PUBLIC DOMAIN
+
+### Settings
+# default
+f=1
+l=0
+sel=0
+del=0
+chop=0
+img=0
+gimp=0
+p=1
+# internal
+fdefault=$f
+ldefault=$l
+movedefault=$p
+
+function usage() {
+  me=`basename "$prog"`
+  cat << END
+Usage: $me [options] djvu_file
+
+Options:
+ -h|--help  print this message
+ -f <int>   first page to process [default: $fdefault]
+ -l <int>   last page to process [default: last page of document]
+ --chop     chopping mode (extract pages as DjVu files)
+ --delete   deletion mode (delete pages by djvm)
+ --gimp     send one page to GIMP, then convert to DjVu and insert back (experimental!)
+ --images   images mode (extract pages as images)
+ --move     move pages to -p place (select, delete, insert)
+   -p <int> new place for moved pages [default: $movedefault]
+ --select   selection mode (select pages by djvused, then merge)
+
+END
+}
+
+opts=`getopt -l "help,chop,delete,gimp,images,move,select" "c:f:l:p:h:" "$@"` && eval set -- "$opts"
+while true ; do
+  case "$1" in
+    -h|--help) usage ; exit 0 ;;
+    -f) f=$2 ; shift 2 ;;
+    -l) l=$2 ; shift 2 ;;
+    -p) p=$2 ; shift 2 ;;
+    --chop) chop=1 ; shift ;;
+    --delete) del=1 ; shift ;;
+    --gimp) gimp=1 ; shift ;;
+    --images) img=1 ; shift ;;
+    --move) move=1 ; shift ;;
+    --select) sel=1 ; shift ;;
+    --) shift ; break ;;
+  esac
+done
+
+### Checks
+if [ $# -ne 1 ] ; then
+  printf "\nDjVu file name is required.\n\n"
+  usage
+  exit 1
+fi
+
+if ! file $1 | grep 'DjVu' >/dev/null ; then
+   printf "\n$1 is not a DjVu file.\n\n"
+   usage
+   exit 1
+fi
+
+if ! which cpaldjvu >/dev/null ; then
+   printf "\nDjVu Libre should be installed.\n\n"
+   usage
+   exit 1
+fi
+
+lastpage=`djvused $1 -e 'n'`
+if [ $l -eq 0 ] ; then
+   l=$lastpage
+fi
+
+if [ $f -gt $l ] ; then
+   printf "\nLast page number should be not less than first page number.\n\n"
+   usage
+   exit 1
+fi
+
+### Variables
+fullname=$1
+djvuname=${fullname%.*}
+sequence=`seq -f "%05g" $f $l`
+asequence=`seq -f "%05g" $f $l | tac`
+
+### Selection
+if [ $sel -eq 1 ] ; then
+   pwdir=`pwd`
+   tmpdir=`mktemp -d /tmp/pagesXXXXX`
+   for i in $sequence
+   do
+      djvused $1 -e "select $i; save-page-with $tmpdir/$i.djvu"
+      printf "Page #"$i"\n"
+   done
+   cd $tmpdir
+   djvm -c $pwdir/$djvuname-sel-$f-$l.djvu *.djvu
+   cd ..
+   rm -rf $tmpdir
+fi
+
+### Chopping
+if [ $chop -eq 1 ] ; then
+   chopdir=$djvuname-chop-$f-$l
+   mkdir $chopdir
+   for i in $sequence
+   do
+      djvused $1 -e "select $i; save-page-with $chopdir/$i.djvu"
+      printf "Page #"$i"\n"
+   done
+fi
+
+### Images
+if [ $img -eq 1 ] ; then
+   imgdir=$djvuname-img-$f-$l
+   mkdir $imgdir
+   for i in $sequence
+   do
+      djvused $1 -e "select $i; save-page-with $imgdir/$i.djvu"
+      ddjvu -format=tiff $imgdir/$i.djvu $imgdir/$i.tif
+      printf "Page #"$i"\n"
+   done
+   rm -f $imgdir/*.djvu
+fi
+
+### Deletion
+if [ $del -eq 1 ] ; then
+   if [[ $f -eq 1 && $l -eq $lastpage ]] ; then
+      printf "\nCannot delete all pages.\n\n"
+      usage
+      exit 1
+   fi
+   result=$djvuname-del-$f-$l.djvu
+   cp $fullname $result
+   for i in $asequence
+   do
+      djvm -d $result $i
+      printf "Page #"$i"\n"
+   done
+fi
+
+### GIMP
+if [ $gimp -eq 1 ] ; then
+   if [ ! $f -eq $l ] ; then
+      printf "\nFor --gimp option, -f and -l must be equal.\n\n"
+      usage
+      exit 1
+   fi
+   gimpdir=$djvuname-$l
+   result=$djvuname-gimp-$l.djvu
+   mkdir $gimpdir
+   djvused $1 -e "select $l; save-page-with $gimpdir/$l.djvu"
+   ddjvu -format=pnm $gimpdir/$l.djvu $gimpdir/$l.pnm
+   rm -f $gimpdir/$l.djvu
+   gimp $gimpdir/$l.pnm
+   img2djvu -a 1 -l 2 $gimpdir
+   rm -rf $gimpdir
+   cp $1 $result
+   djvm -d $result $l
+   djvm -i $result $gimpdir.djvu $l
+   rm -f $gimpdir.djvu
+fi
+
+
+### Move
+if [[ $move -eq 1 && $p -le $((lastpage+1)) ]] ; then
+   printf "Check...\n"
+   if [[ $f -eq 1 && $l -eq $lastpage ]] ; then
+      printf "\nCannot move all pages.\n\n"
+      usage
+      exit 1
+   fi
+   if [[ $p -gt $f && $p -le $l ]] ; then
+      printf "\nCannot move inside selected range of pages.\n\n"
+      usage
+      exit 1
+   fi
+   if [ $p -gt $l ] ; then
+      np=$((p-((l-f)+1)))
+   else
+      np=$p
+   fi
+   printf "Select...\n"
+   pwdir=`pwd`
+   tmpdir=`mktemp -d /tmp/pagesXXXXX`
+   selname=$djvuname-sel-$f-$l.djvu
+   for i in $sequence
+   do
+      djvused $1 -e "select $i; save-page-with $tmpdir/$i.djvu"
+   done
+   cd $tmpdir
+   djvm -c $pwdir/$selname *.djvu
+   cd $pwdir
+   rm -rf $tmpdir
+   printf "Delete...\n"
+   movename=$djvuname-move-$f-$l-$p.djvu
+   cp $fullname $movename
+   for i in $asequence
+   do
+      djvm -d $movename $i
+   done
+   printf "Insert...\n"
+   djvm -i $movename $selname $np
+   rm -f $selname
+   printf "Done.\n"
+fi

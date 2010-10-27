@@ -157,10 +157,11 @@ if [ $gimp -eq 1 ] ; then
    result=$djvuname-gimp-$l.djvu
    mkdir $gimpdir
    djvused $1 -e "select $l; save-page-with $gimpdir/$l.djvu"
+   DPI=`djvudump $gimpdir/$l.djvu | grep INFO | sed -e 's/^.*, \([0-9]*\) dpi.*$/\1/'`
    ddjvu -format=pnm $gimpdir/$l.djvu $gimpdir/$l.pnm
    rm -f $gimpdir/$l.djvu
    gimp $gimpdir/$l.pnm
-   img2djvu -a 1 -l 2 $gimpdir
+   img2djvu -a 1 -l 2 -d $DPI $gimpdir
    rm -rf $gimpdir
    cp $1 $result
    djvm -d $result $l

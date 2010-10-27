@@ -1,6 +1,6 @@
 djvupages is a command-line djvu pages manipulator and editor wrapper. Script has two pages options and several modes options. See --help for more information. 
 
-djvupages depends on bash, getopt, seq, tac, mktemp, DjVu Libre (djvm, djvused and ddjvu), and (in case of --gimp mode) on GIMP and img2djvu.
+djvupages depends on bash, getopt, seq, tac, mktemp, sed, DjVu Libre (djvm, djvused and ddjvu), and (in case of --gimp mode) on GIMP and img2djvu.
 
 djvupages can delete multiple pages, split DjVu file (i.e., select one part of it), move several pages to different place, chop to individual DjVu files, extract selected pages as TIFF images and edit one page in file (through GIMP and img2djvu)
 

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-### Version 0.9
 ### PUBLIC DOMAIN
 
 ### Settings
@@ -21,6 +20,7 @@ movedefault=$p
 function usage() {
   me=`basename "$prog"`
   cat << END
+djvupages version 0.92
 Usage: $me [options] djvu_file
 
 Options:
@@ -52,6 +52,7 @@ while true ; do
     --move) move=1 ; shift ;;
     --select) sel=1 ; shift ;;
     --) shift ; break ;;
+    -*) break ;;
   esac
 done
 

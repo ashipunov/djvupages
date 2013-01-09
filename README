@@ -11,3 +11,7 @@ Example:
 djvupages -f 3 -l 5 --select file.djvu
 
     Will select pages 3, 4, and 5 and put them to separate file
+
+There is a possibility to filter certain pages through the ImageMagic tool "convert", see documentation for all available operation and parameters. For example, to crop white margins from all pages in the book use something like:
+
+djvupages -c '-crop 1740x2540+145+130' book.djvu

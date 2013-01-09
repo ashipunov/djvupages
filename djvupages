@@ -11,6 +11,7 @@ del=0
 chop=0
 img=0
 gimp=0
+convert=""
 p=1
 # internal
 fdefault=$f
@@ -27,6 +28,7 @@ Options:
  -h|--help  print this message
  -f <int>   first page to process [default: $fdefault]
  -l <int>   last page to process [default: last page of document]
+ -c <string>  filter pages through the convert command, then convert to DjVu and insert back
  --chop     chopping mode (extract pages as DjVu files)
  --delete   deletion mode (delete pages by djvm)
  --gimp     send one page to GIMP, then convert to DjVu and insert back (experimental!)
@@ -45,6 +47,7 @@ while true ; do
     -f) f=$2 ; shift 2 ;;
     -l) l=$2 ; shift 2 ;;
     -p) p=$2 ; shift 2 ;;
+    -c) convert=$2 ; shift 2 ;;
     --chop) chop=1 ; shift ;;
     --delete) del=1 ; shift ;;
     --gimp) gimp=1 ; shift ;;
@@ -167,6 +170,30 @@ if [ $gimp -eq 1 ] ; then
    cp $1 $result
    djvm -d $result $l
    djvm -i $result $gimpdir.djvu $l
+   rm -f $gimpdir.djvu
+fi
+
+### Convert command
+if [ "$convert" != "" ] ; then
+   gimpdir=$djvuname-$l
+   result=$djvuname-convert-$l.djvu
+   mkdir $gimpdir
+   cp $1 $result
+   for i in $sequence
+   do
+       djvused $1 -e "select $i; save-page-with $gimpdir/$i.djvu"
+       DPI=`djvudump $gimpdir/$i.djvu | grep INFO | sed -e 's/^.*, \([0-9]*\) dpi.*$/\1/'`
+       ddjvu -format=pnm $gimpdir/$i.djvu $gimpdir/$i.pnm
+       rm -f $gimpdir/$i.djvu
+       convert $gimpdir/$i.pnm  $convert $gimpdir/$i-conv.pnm
+       rm $gimpdir/$i.pnm
+       img2djvu -a 1 -l 2 -d $DPI $gimpdir
+       rm $gimpdir/$i-conv.pnm
+       djvm -d $result $i
+       djvm -i $result $gimpdir.djvu $i
+       printf "Page #"$i"\n"
+   done
+   rm -rf $gimpdir
    rm -f $gimpdir.djvu
 fi
 

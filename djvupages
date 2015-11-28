@@ -9,6 +9,7 @@ l=0
 sel=0
 del=0
 chop=0
+convert=""
 img=0
 gimp=0
 p=1
@@ -20,16 +21,18 @@ movedefault=$p
 function usage() {
   me=`basename "$prog"`
   cat << END
-djvupages version 0.92
+djvupages version 20151125
 Usage: $me [options] djvu_file
 
 Options:
  -h|--help  print this message
  -f <int>   first page to process [default: $fdefault]
  -l <int>   last page to process [default: last page of document]
+ -c "str"   filter pages with ImageMagick options [default: ""]
  --chop     chopping mode (extract pages as DjVu files)
  --delete   deletion mode (delete pages by djvm)
- --gimp     send one page to GIMP, then convert to DjVu and insert back (experimental!)
+ --gimp     send one page to GIMP, then convert it to DjVu and insert back
+   -p <int> page to send [default: $movedefault]
  --images   images mode (extract pages as images)
  --move     move pages to -p place (select, delete, insert)
    -p <int> new place for moved pages [default: $movedefault]
@@ -45,6 +48,7 @@ while true ; do
     -f) f=$2 ; shift 2 ;;
     -l) l=$2 ; shift 2 ;;
     -p) p=$2 ; shift 2 ;;
+    -c) convert=$2 ; shift 2 ;;
     --chop) chop=1 ; shift ;;
     --delete) del=1 ; shift ;;
     --gimp) gimp=1 ; shift ;;
@@ -126,9 +130,9 @@ if [ $img -eq 1 ] ; then
    do
       djvused $1 -e "select $i; save-page-with $imgdir/$i.djvu"
       ddjvu -format=tiff $imgdir/$i.djvu $imgdir/$i.tif
+      rm -f $imgdir/$i.djvu
       printf "Page #"$i"\n"
    done
-   rm -f $imgdir/*.djvu
 fi
 
 ### Deletion
@@ -149,27 +153,50 @@ fi
 
 ### GIMP
 if [ $gimp -eq 1 ] ; then
-   if [ ! $f -eq $l ] ; then
-      printf "\nFor --gimp option, -f and -l must be equal.\n\n"
+   if [ $f -eq $l ] ; then
+      printf "\n For --gimp option, use -p for page number.\n\n"
       usage
       exit 1
    fi
-   gimpdir=$djvuname-$l
-   result=$djvuname-gimp-$l.djvu
+   gimpdir=$djvuname-$p
+   result=$djvuname-gimp-$p.djvu
    mkdir $gimpdir
-   djvused $1 -e "select $l; save-page-with $gimpdir/$l.djvu"
-   DPI=`djvudump $gimpdir/$l.djvu | grep INFO | sed -e 's/^.*, \([0-9]*\) dpi.*$/\1/'`
-   ddjvu -format=pnm $gimpdir/$l.djvu $gimpdir/$l.pnm
-   rm -f $gimpdir/$l.djvu
-   gimp $gimpdir/$l.pnm
-   img2djvu -a 1 -l 2 -d $DPI $gimpdir
+   djvused $1 -e "select $p; save-page-with $gimpdir/$p.djvu"
+   DPI=`djvudump $gimpdir/$p.djvu | grep INFO | sed -e 's/^.*, \([0-9]*\) dpi.*$/\1/'`
+   ddjvu -format=tiff $gimpdir/$p.djvu $gimpdir/$p.tif
+   rm -f $gimpdir/$p.djvu
+   gimp $gimpdir/$p.tif
+   img2djvu -a 2 -d $DPI $gimpdir
    rm -rf $gimpdir
    cp $1 $result
-   djvm -d $result $l
-   djvm -i $result $gimpdir.djvu $l
+   djvm -d $result $p
+   djvm -i $result $gimpdir.djvu $p
    rm -f $gimpdir.djvu
 fi
 
+### Convert command
+if [ "$convert" != "" ] ; then
+   gimpdir=$djvuname-$l
+   result=$djvuname-convert-$l.djvu
+   mkdir $gimpdir
+   cp $1 $result
+   for i in $sequence
+      do
+      djvused $1 -e "select $i; save-page-with $gimpdir/$i.djvu"
+      DPI=`djvudump $gimpdir/$i.djvu | grep INFO | sed -e 's/^.*, \([0-9]*\) dpi.*$/\1/'`
+      ddjvu -format=tiff $gimpdir/$i.djvu $gimpdir/$i.tif
+      rm -f $gimpdir/$i.djvu
+      convert $gimpdir/$i.tif $convert $gimpdir/$i-conv.tif
+      rm $gimpdir/$i.tif
+      img2djvu -a 2 -d $DPI $gimpdir
+      rm $gimpdir/$i-conv.tif
+      djvm -d $result $i
+      djvm -i $result $gimpdir.djvu $i
+      printf "Page #"$i"\n"
+   done
+   rm -rf $gimpdir
+   rm -f $gimpdir.djvu
+fi
 
 ### Move
 if [[ $move -eq 1 && $p -le $((lastpage+1)) ]] ; then

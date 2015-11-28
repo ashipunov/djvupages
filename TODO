@@ -1,2 +1,1 @@
-Option to split pages (?)
-Option to remove background (?)
+Make option to deal with page dpi (via xml). At the moment, djvudpi utility (http://www.djvu-soft.narod.ru/soft/djvudpi.rar) does it.

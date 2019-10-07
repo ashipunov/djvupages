@@ -1,1 +1,7 @@
-Make option to deal with page dpi (via xml). At the moment, djvudpi utility (http://www.djvu-soft.narod.ru/soft/djvudpi.rar) does it.
+Make option to deal with page dpi (via xml). At the moment, djvudpi
+utility (http://www.djvu-soft.narod.ru/soft/djvudpi.rar) does it.
+
+Use graphicsmagick instead of imagemagick as an _option_ (not as a
+replacement as in pull requests to img2djvu)
+
+Option '--images': retain the internal file names?

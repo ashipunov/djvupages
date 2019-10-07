@@ -1,10 +1,18 @@
-20151125 ddjvu makes now TIFF everywhere, not PNM
+djvupages 20191007:
+ README and TODO updated
 
-20151124 GIMP option now uses img2djvu without segmentation and -p sub-option for page number; new -c oprion to filter pages with ImageMagick 'convert'
+djvupages 20151125:
+ ddjvu makes now TIFF everywhere, not PNM
 
-0.92 Exit with wrong option, print version name
+djvupages 20151124:
+ GIMP option now uses img2djvu without segmentation and -p sub-option for page number; new -c oprion to filter pages with ImageMagick 'convert'
 
-0.91 Calculation of DPI for --gimp option
+djvupages 0.92:
+ Exit with wrong option, print version name
 
-0.9  First public release with six modes
+djvupages:
+ 0.91 Calculation of DPI for --gimp option
+
+djvupages 0.9:
+  First public release with six modes
 
